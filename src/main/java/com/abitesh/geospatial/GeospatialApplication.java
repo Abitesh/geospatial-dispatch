@@ -17,7 +17,7 @@ public class GeospatialApplication {
     @Bean
     CommandLineRunner testDatabase(AgentRepository agentRepository) {
         return args -> {
-            AgentEntity agent = new AgentEntity("Dummy Agent");
+            AgentEntity agent = new AgentEntity("Dummy Agent", "AVAILABLE", 37.7749, -122.4194);
             agentRepository.save(agent);
 
             System.out.println("Saved agent with id: " + agent.getId());
