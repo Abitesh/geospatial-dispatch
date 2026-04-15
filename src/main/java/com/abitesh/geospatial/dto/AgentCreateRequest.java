@@ -18,4 +18,8 @@ public class AgentCreateRequest {
 
     public Double getLongitude() { return longitude; }
     public void setLongitude(Double longitude) { this.longitude = longitude; }
+    private String status;
+    
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
