@@ -85,7 +85,8 @@
 
   // Auto-connect WebSocket on page load
   (function connect() {
-    const socket = new SockJS(BASE + '/ws');
+    const socket = new SockJS("http://localhost:8080/ws");
+    // const socket = new SockJS(BASE + '/ws');
     stompClient = Stomp.over(socket);
     stompClient.debug = null; // silence stomp debug noise
     stompClient.connect({}, () => {
@@ -99,26 +100,25 @@
   })();
 
   async function createRide() {
-    const body = {
-      userId: document.getElementById('userId').value,
-      pickupLat: parseFloat(document.getElementById('pickupLat').value),
-      pickupLng: parseFloat(document.getElementById('pickupLng').value)
-    };
-    try {
-      const res = await fetch(BASE + '/api/rides', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      log('Ride created! ID: ' + (data.orderId || data.id || JSON.stringify(data)), 'success');
-      if (data.orderId || data.id) {
-        document.getElementById('rideId').value = data.orderId || data.id;
-      }
-    } catch (e) {
-      log('Failed to create ride: ' + e.message, 'error');
-    }
-  }
+    const userId = document.getElementById("userId").value;
+    const lat = parseFloat(document.getElementById("pickupLat").value);
+    const lng = parseFloat(document.getElementById("pickupLng").value);
+
+    const response = await fetch("http://localhost:8080/api/rides", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            userId: userId,
+            pickupLat: lat,
+            pickupLng: lng
+        })
+    });
+
+    const data = await response.json();
+    console.log(data);
+}
 
   function subscribe() {
     const rideId = document.getElementById('rideId').value.trim();
