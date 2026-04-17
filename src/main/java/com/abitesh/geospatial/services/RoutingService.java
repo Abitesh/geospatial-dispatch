@@ -11,7 +11,6 @@ public class RoutingService {
 
     private final RoutingStrategy routingStrategy;
 
-    // Spring Boot automatically injects the Dijkstra strategy here
     public RoutingService(RoutingStrategy routingStrategy) {
         this.routingStrategy = routingStrategy;
     }
