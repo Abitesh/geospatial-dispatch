@@ -3,7 +3,9 @@ package com.abitesh.geospatial.services;
 import com.abitesh.geospatial.dto.AgentCreateRequest;
 import com.abitesh.geospatial.dto.AgentResponse;
 import com.abitesh.geospatial.models.AgentEntity;
+import com.abitesh.geospatial.models.RideOrderEntity;
 import com.abitesh.geospatial.repositories.AgentRepository;
+import com.abitesh.geospatial.repositories.RideOrderRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,9 +18,17 @@ import java.util.stream.Collectors;
 public class AgentService {
 
     private final AgentRepository agentRepository;
+    private final RideOrderRepository rideOrderRepository;
+    private final NotificationService notificationService;
 
-    public AgentService(AgentRepository agentRepository) {
+    public AgentService(
+            AgentRepository agentRepository,
+            RideOrderRepository rideOrderRepository,
+            NotificationService notificationService
+    ) {
         this.agentRepository = agentRepository;
+        this.rideOrderRepository = rideOrderRepository;
+        this.notificationService = notificationService;
     }
 
     public AgentResponse registerAgent(AgentCreateRequest request) {
@@ -34,23 +44,40 @@ public class AgentService {
     }
 
     public List<AgentResponse> getAllAgents() {
-        return agentRepository.findAll().stream()
+        return agentRepository.findAll()
+                .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     public AgentResponse updateLocation(UUID agentId, Double lat, Double lng) {
         Optional<AgentEntity> agentOpt = agentRepository.findById(agentId);
-        
-        if (agentOpt.isPresent()) {
-            AgentEntity agent = agentOpt.get();
-            agent.setCurrentLat(lat);
-            agent.setCurrentLng(lng);
-            agent.setLastHeartbeatAt(LocalDateTime.now());
-            AgentEntity updated = agentRepository.save(agent);
-            return mapToResponse(updated);
+
+        if (agentOpt.isEmpty()) {
+            throw new RuntimeException("Agent not found with id: " + agentId);
         }
-        throw new RuntimeException("Agent not found with id: " + agentId);
+
+        AgentEntity agent = agentOpt.get();
+        agent.setCurrentLat(lat);
+        agent.setCurrentLng(lng);
+        agent.setLastHeartbeatAt(LocalDateTime.now());
+
+        AgentEntity updated = agentRepository.save(agent);
+
+        Optional<RideOrderEntity> activeRideOpt =
+                rideOrderRepository.findFirstByAgentIdAndStatus(agentId, "ACTIVE");
+
+        if (activeRideOpt.isPresent()) {
+            RideOrderEntity activeRide = activeRideOpt.get();
+            notificationService.broadcastAgentLocation(
+                    activeRide.getId(),
+                    updated.getId(),
+                    updated.getCurrentLat(),
+                    updated.getCurrentLng()
+            );
+        }
+
+        return mapToResponse(updated);
     }
 
     private AgentResponse mapToResponse(AgentEntity entity) {

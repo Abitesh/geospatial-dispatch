@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GeoSpatial Dispatch — Live Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 2rem; }
+    h1 { color: #4f98a3; margin-bottom: 0.25rem; }
+    p.sub { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .card { background: #1c1b19; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.5rem; }
+    h2 { font-size: 1rem; color: #4f98a3; margin-bottom: 1rem; }
+    label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 0.25rem; margin-top: 0.75rem; }
+    input { width: 100%; padding: 0.5rem 0.75rem; background: #111; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; font-size: 0.9rem; }
+    input:focus { outline: 2px solid #4f98a3; border-color: transparent; }
+    button { margin-top: 1rem; width: 100%; padding: 0.6rem; background: #4f98a3; color: #fff; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #3a7f8a; }
+    #log { background: #111; border: 1px solid #222; border-radius: 10px; padding: 1rem; height: 280px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; margin-top: 1.5rem; }
+    .log-entry { padding: 0.25rem 0; border-bottom: 1px solid #1a1a1a; }
+    .log-entry.success { color: #6daa45; }
+    .log-entry.info    { color: #4f98a3; }
+    .log-entry.warn    { color: #e8af34; }
+    .log-entry.error   { color: #dd6974; }
+    #status-badge { display: inline-block; padding: 0.2rem 0.75rem; border-radius: 999px; font-size: 0.75rem; margin-left: 0.75rem; background: #333; color: #888; }
+    #status-badge.connected { background: #1e3f0a; color: #6daa45; }
+  </style>
+</head>
+<body>
+
+  <h1>GeoSpatial Dispatch Engine <span id="status-badge">● Disconnected</span></h1>
+  <p class="sub">16-Day Sprint Demo — Built by Abitesh & Lokesh</p>
+
+  <div class="grid">
+
+    <!-- Ride Creation -->
+    <div class="card">
+      <h2>🚖 Create Ride Request</h2>
+      <label>User ID (UUID)</label>
+      <input id="userId" placeholder="550e8400-e29b-41d4-a716-446655440000" />
+      <label>Pickup Latitude</label>
+      <input id="pickupLat" type="number" value="12.9716" step="0.0001"/>
+      <label>Pickup Longitude</label>
+      <input id="pickupLng" type="number" value="77.5946" step="0.0001"/>
+      <button onclick="createRide()">Create Ride</button>
+    </div>
+
+    <!-- WebSocket Listener -->
+    <div class="card">
+      <h2>📡 Subscribe to Live Updates</h2>
+      <label>Ride ID to Track</label>
+      <input id="rideId" placeholder="Paste ride UUID here after creating a ride" />
+      <button onclick="subscribe()">Subscribe to /topic/rides/{id}</button>
+
+      <label style="margin-top:1.25rem">Send Location Update (as Agent)</label>
+      <label>Agent ID</label>
+      <input id="agentId" placeholder="Agent UUID" />
+      <label>Latitude</label>
+      <input id="agentLat" type="number" value="12.9720" step="0.0001"/>
+      <label>Longitude</label>
+      <input id="agentLng" type="number" value="77.5950" step="0.0001"/>
+      <button onclick="sendLocation()">Send Location via WebSocket</button>
+    </div>
+
+  </div>
+
+  <!-- Live Log -->
+  <div id="log"><div class="log-entry info">Connecting to ws://localhost:8080/ws ...</div></div>
+
+<script>
+  const BASE = 'http://localhost:8080';
+  let stompClient = null;
+
+  function log(msg, type = 'info') {
+    const box = document.getElementById('log');
+    const d = document.createElement('div');
+    d.className = 'log-entry ' + type;
+    d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // Auto-connect WebSocket on page load
+  (function connect() {
+    const socket = new SockJS(BASE + '/ws');
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null; // silence stomp debug noise
+    stompClient.connect({}, () => {
+      const badge = document.getElementById('status-badge');
+      badge.textContent = '● Connected';
+      badge.className = 'connected';
+      log('WebSocket connected to ' + BASE + '/ws', 'success');
+    }, (err) => {
+      log('WebSocket connection failed. Is the backend running on :8080?', 'error');
+    });
+  })();
+
+  async function createRide() {
+    const body = {
+      userId: document.getElementById('userId').value,
+      pickupLat: parseFloat(document.getElementById('pickupLat').value),
+      pickupLng: parseFloat(document.getElementById('pickupLng').value)
+    };
+    try {
+      const res = await fetch(BASE + '/api/rides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      log('Ride created! ID: ' + (data.orderId || data.id || JSON.stringify(data)), 'success');
+      if (data.orderId || data.id) {
+        document.getElementById('rideId').value = data.orderId || data.id;
+      }
+    } catch (e) {
+      log('Failed to create ride: ' + e.message, 'error');
+    }
+  }
+
+  function subscribe() {
+    const rideId = document.getElementById('rideId').value.trim();
+    if (!rideId) { log('Please enter a Ride ID first!', 'warn'); return; }
+    if (!stompClient || !stompClient.connected) { log('WebSocket not connected yet.', 'warn'); return; }
+
+    stompClient.subscribe('/topic/rides/' + rideId, (message) => {
+      const payload = JSON.parse(message.body);
+      log(`📍 Location update for ride ${rideId} → Agent: ${payload.agentId} | Lat: ${payload.latitude} | Lng: ${payload.longitude}`, 'success');
+    });
+    log('Subscribed to /topic/rides/' + rideId, 'info');
+  }
+
+  function sendLocation() {
+    if (!stompClient || !stompClient.connected) { log('WebSocket not connected.', 'warn'); return; }
+    const payload = {
+      agentId: document.getElementById('agentId').value.trim(),
+      latitude: parseFloat(document.getElementById('agentLat').value),
+      longitude: parseFloat(document.getElementById('agentLng').value)
+    };
+    stompClient.send('/app/agent/location', {}, JSON.stringify(payload));
+    log('Sent location update for Agent ' + payload.agentId, 'info');
+  }
+</script>
+
+</body>
+</html>
