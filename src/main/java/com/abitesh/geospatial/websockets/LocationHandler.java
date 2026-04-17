@@ -1,6 +1,5 @@
 package com.abitesh.geospatial.websockets;
 
-import com.abitesh.geospatial.dto.AgentResponse;
 import com.abitesh.geospatial.services.AgentService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;

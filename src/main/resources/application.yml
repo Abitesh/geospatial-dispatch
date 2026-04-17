@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/georouting
-    username: postgres
-    password: ""
+    username: abitesh      
+    password: 
   jpa:
     hibernate:
       ddl-auto: update
