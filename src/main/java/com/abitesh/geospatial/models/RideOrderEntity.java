@@ -1,11 +1,7 @@
 package com.abitesh.geospatial.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -13,24 +9,27 @@ import java.util.UUID;
 public class RideOrderEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     private UUID userId;
     private UUID agentId;
+    private String status;
 
     private Double pickupLat;
     private Double pickupLng;
 
-    private String status; // PENDING, ACTIVE, COMPLETED
+    @Column(name = "drop_lat")
+    private Double dropLat;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    @Column(name = "drop_lng")
+    private Double dropLng;
 
-    public RideOrderEntity() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
+    private Instant createdAt = Instant.now();
+    
+    // FIXED: Changed from LocalDateTime to Instant
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
     // Getters and Setters
     public UUID getId() { return id; }
@@ -42,18 +41,25 @@ public class RideOrderEntity {
     public UUID getAgentId() { return agentId; }
     public void setAgentId(UUID agentId) { this.agentId = agentId; }
 
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
     public Double getPickupLat() { return pickupLat; }
     public void setPickupLat(Double pickupLat) { this.pickupLat = pickupLat; }
 
     public Double getPickupLng() { return pickupLng; }
     public void setPickupLng(Double pickupLng) { this.pickupLng = pickupLng; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public Double getDropLat() { return dropLat; }
+    public void setDropLat(Double dropLat) { this.dropLat = dropLat; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Double getDropLng() { return dropLng; }
+    public void setDropLng(Double dropLng) { this.dropLng = dropLng; }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    // FIXED: Getter and Setter use Instant
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

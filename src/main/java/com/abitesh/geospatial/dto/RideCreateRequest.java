@@ -1,17 +1,26 @@
 package com.abitesh.geospatial.dto;
 
-public class RideCreateRequest {
-    private String userId;
-    private double pickupLat;
-    private double pickupLng;
+import java.util.UUID;
 
-    // Getters and Setters
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
-    
-    public double getPickupLat() { return pickupLat; }
-    public void setPickupLat(double pickupLat) { this.pickupLat = pickupLat; }
-    
-    public double getPickupLng() { return pickupLng; }
-    public void setPickupLng(double pickupLng) { this.pickupLng = pickupLng; }
+public class RideCreateRequest {
+    private UUID userId;
+    private Double pickupLat;
+    private Double pickupLng;
+    private Double dropLat; 
+    private Double dropLng; 
+
+    public UUID getUserId() { return userId; }
+    public void setUserId(UUID userId) { this.userId = userId; }
+
+    public Double getPickupLat() { return pickupLat; }
+    public void setPickupLat(Double pickupLat) { this.pickupLat = pickupLat; }
+
+    public Double getPickupLng() { return pickupLng; }
+    public void setPickupLng(Double pickupLng) { this.pickupLng = pickupLng; }
+
+    public Double getDropLat() { return dropLat; }
+    public void setDropLat(Double dropLat) { this.dropLat = dropLat; }
+
+    public Double getDropLng() { return dropLng; }
+    public void setDropLng(Double dropLng) { this.dropLng = dropLng; }
 }
