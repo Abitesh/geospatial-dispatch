@@ -113,8 +113,9 @@ const carIcon = L.icon({
     popupAnchor: [0, -16]
 });
 
-let pickupMarker, dropMarker, assignedAgentMarker, routeLine;
-let nearbyAgentsLayer = L.layerGroup().addTo(map); // Layer to manage nearby cars
+let pickupMarker, dropMarker, assignedAgentMarker;
+let rideRouteLine, agentRouteLine; // Separate lines for Driver->Pickup and Pickup->Drop
+let nearbyAgentsLayer = L.layerGroup().addTo(map);
 let selectionMode = "pickup";
 
 function log(msg, type="info") {
@@ -143,10 +144,7 @@ map.on("click", async function(e) {
     if (pickupMarker) map.removeLayer(pickupMarker);
     pickupMarker = L.marker([lat, lng]).addTo(map);
     updateLocationName(lat, lng, "pickupLabel");
-    
-    // Fetch and show nearby agents when pickup is selected
     fetchNearbyAgents(lat, lng);
-
   } else {
     document.getElementById("dropLat").value = lat;
     document.getElementById("dropLng").value = lng;
@@ -174,56 +172,39 @@ async function updateLocationName(lat, lng, labelId) {
 
 // FETCH NEARBY AGENTS
 async function fetchNearbyAgents(lat, lng) {
-    nearbyAgentsLayer.clearLayers(); // Clear old cars
-    log("Scanning for nearby drivers...", "info");
-
+    nearbyAgentsLayer.clearLayers();
     try {
-        // IMPORTANT: You need to create this endpoint in your Spring Boot backend
         const res = await fetch(`${BASE}/api/agents/nearby?lat=${lat}&lng=${lng}&radius=5000`); 
-        
         if (!res.ok) throw new Error("API not ready");
         const agents = await res.json();
-        
-        if (agents.length === 0) {
-            log("No drivers found nearby.", "warning");
-            return;
-        }
-
-        log(`Found ${agents.length} drivers nearby.`, "success");
         agents.forEach(agent => {
             L.marker([agent.currentLat, agent.currentLng], { icon: carIcon })
-             .bindPopup(`Agent: ${agent.name}`)
+             .bindPopup(`Available Agent: ${agent.name}`)
              .addTo(nearbyAgentsLayer);
         });
-
     } catch (e) {
-        // FALLBACK: If your backend endpoint isn't built yet, we mock 2 nearby cars for visual testing
-        log("Nearby API not found. Showing mock drivers for UI testing.", "highlight");
-        const mockLat1 = lat + (Math.random() - 0.5) * 0.01;
-        const mockLng1 = lng + (Math.random() - 0.5) * 0.01;
-        L.marker([mockLat1, mockLng1], { icon: carIcon }).bindPopup("Mock Driver 1").addTo(nearbyAgentsLayer);
-        
-        const mockLat2 = lat + (Math.random() - 0.5) * 0.01;
-        const mockLng2 = lng + (Math.random() - 0.5) * 0.01;
-        L.marker([mockLat2, mockLng2], { icon: carIcon }).bindPopup("Mock Driver 2").addTo(nearbyAgentsLayer);
+        // Mock nearby drivers if backend isn't returning any
+        const mLat = lat + 0.008;
+        const mLng = lng + 0.008;
+        L.marker([mLat, mLng], { icon: carIcon }).bindPopup("Mock Driver").addTo(nearbyAgentsLayer);
     }
 }
 
 // CREATE RIDE & AUTO-ASSIGN
 async function createRide() {
-  const pLat = document.getElementById("pickupLat").value;
-  const pLng = document.getElementById("pickupLng").value;
-  const dLat = document.getElementById("dropLat").value;
-  const dLng = document.getElementById("dropLng").value;
+  const pLat = parseFloat(document.getElementById("pickupLat").value);
+  const pLng = parseFloat(document.getElementById("pickupLng").value);
+  const dLat = parseFloat(document.getElementById("dropLat").value);
+  const dLng = parseFloat(document.getElementById("dropLng").value);
 
-  if(!pLat || !dLat) return log("Please set both Pickup and Drop locations.", "error");
+  if(isNaN(pLat) || isNaN(dLat)) return log("Please set both Pickup and Drop locations.", "error");
 
   const payload = {
     userId: document.getElementById("userId").value,
-    pickupLat: parseFloat(pLat),
-    pickupLng: parseFloat(pLng),
-    dropLat: parseFloat(dLat),
-    dropLng: parseFloat(dLng)
+    pickupLat: pLat,
+    pickupLng: pLng,
+    dropLat: dLat,
+    dropLng: dLng
   };
 
   try {
@@ -234,41 +215,65 @@ async function createRide() {
       });
       const data = await res.json();
 
-      // Clear the map of all unassigned nearby cars
       nearbyAgentsLayer.clearLayers();
 
-      // AUTO FILL ASSIGNED IDs
       document.getElementById("rideId").value = data.id;
+      
       if(data.agentId) {
           document.getElementById("agentId").value = data.agentId;
           document.getElementById("trackBtn").disabled = false;
           
-          // Set initial simulator coordinates to the assigned agent's current location
-          if(data.agentLat && data.agentLng) {
-             document.getElementById("agentLat").value = data.agentLat;
-             document.getElementById("agentLng").value = data.agentLng;
-          }
+          // CRITICAL FIX: If backend doesn't send agent coords, calculate a fake nearby location to prevent NaN errors
+          const finalAgentLat = data.agentLat || (pLat + 0.005);
+          const finalAgentLng = data.agentLng || (pLng + 0.005);
+          
+          document.getElementById("agentLat").value = finalAgentLat.toFixed(4);
+          document.getElementById("agentLng").value = finalAgentLng.toFixed(4);
+          
+          // Place the assigned agent immediately on the map
+          if (assignedAgentMarker) map.removeLayer(assignedAgentMarker);
+          assignedAgentMarker = L.marker([finalAgentLat, finalAgentLng], { icon: carIcon }).addTo(map);
+
           log(`Ride confirmed! Assigned to Driver: <span class="highlight">${data.agentId}</span>`, "success");
+          
+          // Draw Path 1: Driver to Pickup (Green Dashed)
+          drawRoute(finalAgentLat, finalAgentLng, pLat, pLng, 'agent');
       } else {
-          log("Ride created, but no drivers are currently available.", "error");
+          log("Ride created, but no drivers are currently available.", "warning");
       }
 
-      drawRoute(payload.pickupLat, payload.pickupLng, payload.dropLat, payload.dropLng);
+      // Draw Path 2: Pickup to Drop (Blue Solid)
+      drawRoute(pLat, pLng, dLat, dLng, 'ride');
+      
   } catch(e) {
       log("Error creating ride. Ensure backend is running.", "error");
   }
 }
 
 // REAL ROUTE (OSRM)
-async function drawRoute(pLat, pLng, dLat, dLng) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
-  const res = await fetch(url);
-  const data = await res.json();
-  const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+async function drawRoute(startLat, startLng, endLat, endLng, type) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
+  try {
+      const res = await fetch(url);
+      const data = await res.json();
+      const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
 
-  if (routeLine) map.removeLayer(routeLine);
-  routeLine = L.polyline(coords, { color: '#4f98a3', weight: 5, dashArray: '10, 10' }).addTo(map);
-  map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+      if (type === 'agent') {
+          if (agentRouteLine) map.removeLayer(agentRouteLine);
+          // Green dashed line for agent coming to pickup
+          agentRouteLine = L.polyline(coords, { color: '#6daa45', weight: 4, dashArray: '8, 8' }).addTo(map);
+      } else {
+          if (rideRouteLine) map.removeLayer(rideRouteLine);
+          // Standard blue line for the actual ride
+          rideRouteLine = L.polyline(coords, { color: '#4f98a3', weight: 5 }).addTo(map);
+      }
+      
+      // Auto-zoom map to fit all elements
+      const group = new L.featureGroup([pickupMarker, dropMarker, assignedAgentMarker].filter(Boolean));
+      map.fitBounds(group.getBounds(), { padding: [50, 50] });
+  } catch (e) {
+      log("Failed to draw route. OSRM API might be rate-limited.", "error");
+  }
 }
 
 // WEBSOCKET
@@ -297,9 +302,14 @@ function subscribe() {
     } else {
       assignedAgentMarker = L.marker([lat, lng], { icon: carIcon }).addTo(map);
     }
+    
+    // Update the simulator inputs so you can keep driving from the new location
+    document.getElementById("agentLat").value = lat.toFixed(4);
+    document.getElementById("agentLng").value = lng.toFixed(4);
+    
     map.panTo([lat, lng]);
   });
-  log("Live tracking activated. Awaiting movement...", "success");
+  log("Live tracking activated. Ready for movement.", "success");
 }
 
 // SEND LOCATION
@@ -309,10 +319,11 @@ function sendLocation() {
     latitude: parseFloat(document.getElementById("agentLat").value),
     longitude: parseFloat(document.getElementById("agentLng").value)
   };
-  if(!payload.agentId) return log("Missing Agent ID", "error");
+  
+  if(!payload.agentId || isNaN(payload.latitude)) return log("Cannot send: Missing Agent ID or Location", "error");
 
   stompClient.send("/app/agent/location", {}, JSON.stringify(payload));
-  log(`Driver location updated to: ${payload.latitude}, ${payload.longitude}`, "info");
+  log(`Driver location updated to: ${payload.latitude.toFixed(4)}, ${payload.longitude.toFixed(4)}`, "info");
 }
 </script>
 </body>
