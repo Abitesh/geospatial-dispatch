@@ -114,7 +114,7 @@ const carIcon = L.icon({
 });
 
 let pickupMarker, dropMarker, assignedAgentMarker;
-let rideRouteLine, agentRouteLine; // Separate lines for Driver->Pickup and Pickup->Drop
+let rideRouteLine, agentRouteLine;
 let nearbyAgentsLayer = L.layerGroup().addTo(map);
 let selectionMode = "pickup";
 
@@ -133,7 +133,6 @@ function setMode(mode) {
   document.getElementById("btnDrop").className = mode === 'drop' ? 'active' : '';
 }
 
-// MAP CLICK
 map.on("click", async function(e) {
   const lat = e.latlng.lat;
   const lng = e.latlng.lng;
@@ -154,7 +153,6 @@ map.on("click", async function(e) {
   }
 });
 
-// REVERSE GEOCODING
 async function updateLocationName(lat, lng, labelId) {
   document.getElementById(labelId).textContent = "Fetching location...";
   try {
@@ -170,7 +168,7 @@ async function updateLocationName(lat, lng, labelId) {
   }
 }
 
-// FETCH NEARBY AGENTS
+
 async function fetchNearbyAgents(lat, lng) {
     nearbyAgentsLayer.clearLayers();
     try {
@@ -183,14 +181,13 @@ async function fetchNearbyAgents(lat, lng) {
              .addTo(nearbyAgentsLayer);
         });
     } catch (e) {
-        // Mock nearby drivers if backend isn't returning any
         const mLat = lat + 0.008;
         const mLng = lng + 0.008;
         L.marker([mLat, mLng], { icon: carIcon }).bindPopup("Mock Driver").addTo(nearbyAgentsLayer);
     }
 }
 
-// CREATE RIDE & AUTO-ASSIGN
+
 async function createRide() {
   const pLat = parseFloat(document.getElementById("pickupLat").value);
   const pLng = parseFloat(document.getElementById("pickupLng").value);
@@ -223,26 +220,22 @@ async function createRide() {
           document.getElementById("agentId").value = data.agentId;
           document.getElementById("trackBtn").disabled = false;
           
-          // CRITICAL FIX: If backend doesn't send agent coords, calculate a fake nearby location to prevent NaN errors
           const finalAgentLat = data.agentLat || (pLat + 0.005);
           const finalAgentLng = data.agentLng || (pLng + 0.005);
           
           document.getElementById("agentLat").value = finalAgentLat.toFixed(4);
           document.getElementById("agentLng").value = finalAgentLng.toFixed(4);
           
-          // Place the assigned agent immediately on the map
           if (assignedAgentMarker) map.removeLayer(assignedAgentMarker);
           assignedAgentMarker = L.marker([finalAgentLat, finalAgentLng], { icon: carIcon }).addTo(map);
 
           log(`Ride confirmed! Assigned to Driver: <span class="highlight">${data.agentId}</span>`, "success");
           
-          // Draw Path 1: Driver to Pickup (Green Dashed)
           drawRoute(finalAgentLat, finalAgentLng, pLat, pLng, 'agent');
       } else {
           log("Ride created, but no drivers are currently available.", "warning");
       }
 
-      // Draw Path 2: Pickup to Drop (Blue Solid)
       drawRoute(pLat, pLng, dLat, dLng, 'ride');
       
   } catch(e) {
@@ -250,7 +243,6 @@ async function createRide() {
   }
 }
 
-// REAL ROUTE (OSRM)
 async function drawRoute(startLat, startLng, endLat, endLng, type) {
   const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
   try {
@@ -260,15 +252,12 @@ async function drawRoute(startLat, startLng, endLat, endLng, type) {
 
       if (type === 'agent') {
           if (agentRouteLine) map.removeLayer(agentRouteLine);
-          // Green dashed line for agent coming to pickup
           agentRouteLine = L.polyline(coords, { color: '#6daa45', weight: 4, dashArray: '8, 8' }).addTo(map);
       } else {
           if (rideRouteLine) map.removeLayer(rideRouteLine);
-          // Standard blue line for the actual ride
           rideRouteLine = L.polyline(coords, { color: '#4f98a3', weight: 5 }).addTo(map);
       }
       
-      // Auto-zoom map to fit all elements
       const group = new L.featureGroup([pickupMarker, dropMarker, assignedAgentMarker].filter(Boolean));
       map.fitBounds(group.getBounds(), { padding: [50, 50] });
   } catch (e) {
@@ -276,7 +265,7 @@ async function drawRoute(startLat, startLng, endLat, endLng, type) {
   }
 }
 
-// WEBSOCKET
+
 (function connect() {
   const socket = new SockJS(BASE + "/ws");
   stompClient = Stomp.over(socket);
@@ -287,7 +276,6 @@ async function drawRoute(startLat, startLng, endLat, endLng, type) {
   });
 })();
 
-// SUBSCRIBE
 function subscribe() {
   const rideId = document.getElementById("rideId").value;
   if(!rideId) return;
@@ -303,7 +291,6 @@ function subscribe() {
       assignedAgentMarker = L.marker([lat, lng], { icon: carIcon }).addTo(map);
     }
     
-    // Update the simulator inputs so you can keep driving from the new location
     document.getElementById("agentLat").value = lat.toFixed(4);
     document.getElementById("agentLng").value = lng.toFixed(4);
     
@@ -312,7 +299,6 @@ function subscribe() {
   log("Live tracking activated. Ready for movement.", "success");
 }
 
-// SEND LOCATION
 function sendLocation() {
   const payload = {
     agentId: document.getElementById("agentId").value,
