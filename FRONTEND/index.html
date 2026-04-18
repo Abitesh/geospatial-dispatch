@@ -1,123 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GeoSpatial Dispatch — Live Demo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GeoSpatial Dispatch</title>
 
-<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 2rem; }
+    h1 { color: #4f98a3; margin-bottom: 0.5rem; }
+    p.subtitle { color: #888; font-size: 0.9rem; margin-bottom: 2rem; }
+    
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .card { background: #1c1b19; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.5rem; }
+    h3 { margin-bottom: 1rem; border-bottom: 1px solid #333; padding-bottom: 0.5rem; }
+    
+    .input-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    input { width: 100%; padding: 0.6rem; background: #111; color: #fff; border: 1px solid #333; border-radius: 6px; }
+    input[readonly] { background: #1a1a1a; color: #666; cursor: not-allowed; }
+    
+    button { margin-top: 1rem; width: 100%; padding: 0.8rem; background: #4f98a3; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+    button:hover { background: #3b7a84; }
+    button:disabled { background: #444; color: #888; cursor: not-allowed; }
+    
+    .mode-buttons { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .mode-buttons button { margin: 0; background: #2a2a2a; color: #aaa; }
+    .mode-buttons button.active { background: #4f98a3; color: #fff; }
 
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 2rem; }
-h1 { color: #4f98a3; }
+    .location-box { background: #111; padding: 1rem; border-radius: 6px; border: 1px dashed #444; margin-bottom: 1rem; }
+    .location-box h4 { font-size: 0.8rem; color: #888; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 1px; }
+    .location-box p { font-size: 1rem; color: #4f98a3; font-weight: 500; min-height: 24px; }
 
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
-.card { background: #1c1b19; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.5rem; }
-
-.input-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-
-input {
-  width: 100%;
-  padding: 0.5rem;
-  background: #111;
-  color: #fff;
-  border: 1px solid #333;
-  border-radius: 6px;
-}
-
-button {
-  margin-top: 1rem;
-  width: 100%;
-  padding: 0.6rem;
-  background: #4f98a3;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-button:hover { background: #3b7a84; }
-
-.mode-buttons button {
-  width: 48%;
-}
-
-#map {
-  height: 400px;
-  width: 100%;
-  margin-top: 2rem;
-  border-radius: 10px;
-  border: 2px solid #2a2a2a;
-}
-
-#log {
-  background: #111;
-  margin-top: 2rem;
-  padding: 1rem;
-  height: 200px;
-  overflow-y: auto;
-  font-family: monospace;
-  border-radius: 10px;
-  border: 1px solid #2a2a2a;
-}
-
-.success { color: #6daa45; }
-.error { color: #dd6974; }
-.info { color: #4f98a3; }
-.warning { color: #e5b567; }
-</style>
+    #map { height: 450px; width: 100%; margin-top: 2rem; border-radius: 10px; border: 2px solid #2a2a2a; }
+    #log { background: #111; margin-top: 2rem; padding: 1rem; height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; border-radius: 10px; border: 1px solid #2a2a2a; }
+    
+    .success { color: #6daa45; }
+    .error { color: #dd6974; }
+    .info { color: #aaa; }
+    .highlight { color: #e5b567; }
+  </style>
 </head>
 
 <body>
 
-<h1>GeoSpatial Dispatch 🚀 <span id="status">❌</span></h1>
+<h1>GeoSpatial Dispatch <span id="status">❌</span></h1>
+<p class="subtitle">Book a ride and track your agent in real-time.</p>
 
 <div class="grid">
   <div class="card">
-    <h3>Create Ride</h3>
+    <h3>1. Book a Ride</h3>
+    <input type="hidden" id="userId" value="550e8400-e29b-41d4-a716-446655440000"/>
 
-    <input id="userId" value="550e8400-e29b-41d4-a716-446655440000"/>
-
-    <div class="mode-buttons input-group">
-      <button onclick="setMode('pickup')">Select Pickup</button>
-      <button onclick="setMode('drop')">Select Drop</button>
+    <div class="mode-buttons">
+      <button id="btnPickup" class="active" onclick="setMode('pickup')">📍 Set Pickup</button>
+      <button id="btnDrop" onclick="setMode('drop')">🏁 Set Drop</button>
     </div>
 
-    <label id="pickupLabel">Pickup Location</label>
-    <div class="input-group">
-      <input id="pickupLat"/>
-      <input id="pickupLng"/>
+    <div class="location-box">
+      <h4>Pickup Point</h4>
+      <p id="pickupLabel">Click on the map to select</p>
+      <input type="hidden" id="pickupLat"/><input type="hidden" id="pickupLng"/>
     </div>
 
-    <label id="dropLabel">Drop Location</label>
-    <div class="input-group">
-      <input id="dropLat"/>
-      <input id="dropLng"/>
+    <div class="location-box">
+      <h4>Drop Point</h4>
+      <p id="dropLabel">Click on the map to select</p>
+      <input type="hidden" id="dropLat"/><input type="hidden" id="dropLng"/>
     </div>
 
-    <button onclick="createRide()">Create Ride</button>
+    <button id="createRideBtn" onclick="createRide()">Confirm Ride</button>
   </div>
 
   <div class="card">
-    <h3>Live Tracking</h3>
-
-    <input id="rideId" placeholder="Ride ID"/>
-    <button onclick="subscribe()">Subscribe</button>
-
-    <input id="agentId" placeholder="Agent ID"/>
-
-    <label id="agentLabel">Agent Location</label>
+    <h3>2. Live Tracking</h3>
+    <p style="font-size: 0.8rem; color: #888; margin-bottom: 0.5rem;">These fields will auto-fill when the nearest agent is assigned.</p>
+    
     <div class="input-group">
-      <input id="agentLat" value="17.3361"/>
-      <input id="agentLng" value="78.5741"/>
+        <input id="rideId" readonly placeholder="Assigned Ride ID"/>
+        <input id="agentId" readonly placeholder="Assigned Agent ID"/>
     </div>
+    
+    <button id="trackBtn" onclick="subscribe()" disabled>Start Live Tracking</button>
 
-    <button onclick="sendLocation()">Send Location</button>
+    <h4 style="font-size: 0.8rem; color: #888; margin-top: 2rem; margin-bottom: 0.5rem; text-transform: uppercase;">Agent Driver Simulator</h4>
+    <div class="input-group">
+      <input id="agentLat" placeholder="Current Lat"/>
+      <input id="agentLng" placeholder="Current Lng"/>
+    </div>
+    <button style="background: #2a2a2a; color: #fff;" onclick="sendLocation()">Simulate Driver Movement</button>
   </div>
 </div>
 
@@ -126,27 +101,35 @@ button:hover { background: #3b7a84; }
 
 <script>
 const BASE = "http://localhost:8080";
-
 let stompClient = null;
 let map = L.map('map').setView([17.3616, 78.4747], 13);
-
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
-let pickupMarker, dropMarker, agentMarker, routeLine;
+// Custom Car Icon for Nearby Agents
+const carIcon = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204121.png', 
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+});
+
+let pickupMarker, dropMarker, assignedAgentMarker, routeLine;
+let nearbyAgentsLayer = L.layerGroup().addTo(map); // Layer to manage nearby cars
 let selectionMode = "pickup";
 
-// LOG FUNCTION
 function log(msg, type="info") {
   const el = document.createElement("div");
   el.className = type;
-  el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  document.getElementById("log").appendChild(el);
+  el.innerHTML = `> ${msg}`;
+  const logBox = document.getElementById("log");
+  logBox.appendChild(el);
+  logBox.scrollTop = logBox.scrollHeight;
 }
 
-// MODE SWITCH
 function setMode(mode) {
   selectionMode = mode;
-  log("Mode: " + mode, "info");
+  document.getElementById("btnPickup").className = mode === 'pickup' ? 'active' : '';
+  document.getElementById("btnDrop").className = mode === 'drop' ? 'active' : '';
 }
 
 // MAP CLICK
@@ -157,116 +140,180 @@ map.on("click", async function(e) {
   if (selectionMode === "pickup") {
     document.getElementById("pickupLat").value = lat;
     document.getElementById("pickupLng").value = lng;
-
     if (pickupMarker) map.removeLayer(pickupMarker);
     pickupMarker = L.marker([lat, lng]).addTo(map);
-
     updateLocationName(lat, lng, "pickupLabel");
+    
+    // Fetch and show nearby agents when pickup is selected
+    fetchNearbyAgents(lat, lng);
+
   } else {
     document.getElementById("dropLat").value = lat;
     document.getElementById("dropLng").value = lng;
-
     if (dropMarker) map.removeLayer(dropMarker);
-    dropMarker = L.marker([lat, lng]).addTo(map);
-
+    dropMarker = L.marker([lat, lng], {icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/1483/1483336.png', iconSize:[24,24]})}).addTo(map);
     updateLocationName(lat, lng, "dropLabel");
   }
 });
 
 // REVERSE GEOCODING
 async function updateLocationName(lat, lng, labelId) {
+  document.getElementById(labelId).textContent = "Fetching location...";
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
     const data = await res.json();
-    document.getElementById(labelId).textContent = data.display_name;
-  } catch {}
+    const addr = data.address;
+    const colony = addr.suburb || addr.neighbourhood || addr.residential || addr.village || "";
+    const city = addr.city || addr.town || addr.county || "";
+    const formattedName = [colony, city].filter(Boolean).join(", ");
+    document.getElementById(labelId).textContent = formattedName || "Unknown Location Area";
+  } catch {
+    document.getElementById(labelId).textContent = "Location Selected";
+  }
 }
 
-// CREATE RIDE
+// FETCH NEARBY AGENTS
+async function fetchNearbyAgents(lat, lng) {
+    nearbyAgentsLayer.clearLayers(); // Clear old cars
+    log("Scanning for nearby drivers...", "info");
+
+    try {
+        // IMPORTANT: You need to create this endpoint in your Spring Boot backend
+        const res = await fetch(`${BASE}/api/agents/nearby?lat=${lat}&lng=${lng}&radius=5000`); 
+        
+        if (!res.ok) throw new Error("API not ready");
+        const agents = await res.json();
+        
+        if (agents.length === 0) {
+            log("No drivers found nearby.", "warning");
+            return;
+        }
+
+        log(`Found ${agents.length} drivers nearby.`, "success");
+        agents.forEach(agent => {
+            L.marker([agent.currentLat, agent.currentLng], { icon: carIcon })
+             .bindPopup(`Agent: ${agent.name}`)
+             .addTo(nearbyAgentsLayer);
+        });
+
+    } catch (e) {
+        // FALLBACK: If your backend endpoint isn't built yet, we mock 2 nearby cars for visual testing
+        log("Nearby API not found. Showing mock drivers for UI testing.", "highlight");
+        const mockLat1 = lat + (Math.random() - 0.5) * 0.01;
+        const mockLng1 = lng + (Math.random() - 0.5) * 0.01;
+        L.marker([mockLat1, mockLng1], { icon: carIcon }).bindPopup("Mock Driver 1").addTo(nearbyAgentsLayer);
+        
+        const mockLat2 = lat + (Math.random() - 0.5) * 0.01;
+        const mockLng2 = lng + (Math.random() - 0.5) * 0.01;
+        L.marker([mockLat2, mockLng2], { icon: carIcon }).bindPopup("Mock Driver 2").addTo(nearbyAgentsLayer);
+    }
+}
+
+// CREATE RIDE & AUTO-ASSIGN
 async function createRide() {
+  const pLat = document.getElementById("pickupLat").value;
+  const pLng = document.getElementById("pickupLng").value;
+  const dLat = document.getElementById("dropLat").value;
+  const dLng = document.getElementById("dropLng").value;
+
+  if(!pLat || !dLat) return log("Please set both Pickup and Drop locations.", "error");
+
   const payload = {
     userId: document.getElementById("userId").value,
-    pickupLat: parseFloat(pickupLat.value),
-    pickupLng: parseFloat(pickupLng.value),
-    dropLat: parseFloat(dropLat.value),
-    dropLng: parseFloat(dropLng.value)
+    pickupLat: parseFloat(pLat),
+    pickupLng: parseFloat(pLng),
+    dropLat: parseFloat(dLat),
+    dropLng: parseFloat(dLng)
   };
 
-  const res = await fetch(BASE + "/api/rides", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify(payload)
-  });
+  try {
+      const res = await fetch(BASE + "/api/rides", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
 
-  const data = await res.json();
+      // Clear the map of all unassigned nearby cars
+      nearbyAgentsLayer.clearLayers();
 
-  document.getElementById("rideId").value = data.id;
+      // AUTO FILL ASSIGNED IDs
+      document.getElementById("rideId").value = data.id;
+      if(data.agentId) {
+          document.getElementById("agentId").value = data.agentId;
+          document.getElementById("trackBtn").disabled = false;
+          
+          // Set initial simulator coordinates to the assigned agent's current location
+          if(data.agentLat && data.agentLng) {
+             document.getElementById("agentLat").value = data.agentLat;
+             document.getElementById("agentLng").value = data.agentLng;
+          }
+          log(`Ride confirmed! Assigned to Driver: <span class="highlight">${data.agentId}</span>`, "success");
+      } else {
+          log("Ride created, but no drivers are currently available.", "error");
+      }
 
-  log("Ride created", "success");
-
-  drawRoute(payload.pickupLat, payload.pickupLng, payload.dropLat, payload.dropLng);
+      drawRoute(payload.pickupLat, payload.pickupLng, payload.dropLat, payload.dropLng);
+  } catch(e) {
+      log("Error creating ride. Ensure backend is running.", "error");
+  }
 }
 
 // REAL ROUTE (OSRM)
 async function drawRoute(pLat, pLng, dLat, dLng) {
   const url = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
-
   const res = await fetch(url);
   const data = await res.json();
-
   const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
 
   if (routeLine) map.removeLayer(routeLine);
-
-  routeLine = L.polyline(coords, { color: '#4f98a3', weight: 5 }).addTo(map);
-
-  map.fitBounds(routeLine.getBounds());
+  routeLine = L.polyline(coords, { color: '#4f98a3', weight: 5, dashArray: '10, 10' }).addTo(map);
+  map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
 }
 
 // WEBSOCKET
 (function connect() {
   const socket = new SockJS(BASE + "/ws");
   stompClient = Stomp.over(socket);
+  stompClient.debug = null;
 
   stompClient.connect({}, () => {
-    document.getElementById("status").textContent = "✅";
-    log("WebSocket connected", "success");
+    document.getElementById("status").textContent = "🟢";
   });
 })();
 
 // SUBSCRIBE
 function subscribe() {
   const rideId = document.getElementById("rideId").value;
+  if(!rideId) return;
 
   stompClient.subscribe("/topic/rides/" + rideId, (msg) => {
     const data = JSON.parse(msg.body);
-    const lat = data.latitude;
-    const lng = data.longitude;
+    const lat = parseFloat(data.latitude);
+    const lng = parseFloat(data.longitude);
 
-    if (agentMarker) {
-      agentMarker.setLatLng([lat, lng]);
+    if (assignedAgentMarker) {
+      assignedAgentMarker.setLatLng([lat, lng]);
     } else {
-      agentMarker = L.marker([lat, lng]).addTo(map);
+      assignedAgentMarker = L.marker([lat, lng], { icon: carIcon }).addTo(map);
     }
-
     map.panTo([lat, lng]);
   });
-
-  log("Subscribed to ride", "success");
+  log("Live tracking activated. Awaiting movement...", "success");
 }
 
 // SEND LOCATION
 function sendLocation() {
   const payload = {
-    agentId: agentId.value,
-    latitude: parseFloat(agentLat.value),
-    longitude: parseFloat(agentLng.value)
+    agentId: document.getElementById("agentId").value,
+    latitude: parseFloat(document.getElementById("agentLat").value),
+    longitude: parseFloat(document.getElementById("agentLng").value)
   };
+  if(!payload.agentId) return log("Missing Agent ID", "error");
 
   stompClient.send("/app/agent/location", {}, JSON.stringify(payload));
-  log("Location sent", "info");
+  log(`Driver location updated to: ${payload.latitude}, ${payload.longitude}`, "info");
 }
 </script>
-
 </body>
 </html>
