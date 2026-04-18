@@ -1,38 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GeoSpatial Dispatch — Live Demo</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GeoSpatial Dispatch — Live Demo</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 2rem; }
-    h1 { color: #4f98a3; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
-    .card { background: #1c1b19; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.5rem; }
-    
-    .input-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-    .input-group input { margin-top: 0; }
-    
-    input { width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: #111; color: #fff; border: 1px solid #333; border-radius: 6px; }
-    button { margin-top: 1rem; width: 100%; padding: 0.6rem; background: #4f98a3; color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #3b7a84; }
-    
-    #map { height: 400px; width: 100%; margin-top: 2rem; border-radius: 10px; border: 2px solid #2a2a2a; z-index: 1; }
-    #log { background: #111; margin-top: 2rem; padding: 1rem; height: 200px; overflow-y: auto; font-family: monospace; border-radius: 10px; border: 1px solid #2a2a2a; }
-    
-    .success { color: #6daa45; }
-    .error { color: #dd6974; }
-    .info { color: #4f98a3; }
-    .warning { color: #e5b567; }
-  </style>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 2rem; }
+h1 { color: #4f98a3; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+.card { background: #1c1b19; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.5rem; }
+
+.input-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+input {
+  width: 100%;
+  padding: 0.5rem;
+  background: #111;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+button {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.6rem;
+  background: #4f98a3;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover { background: #3b7a84; }
+
+.mode-buttons button {
+  width: 48%;
+}
+
+#map {
+  height: 400px;
+  width: 100%;
+  margin-top: 2rem;
+  border-radius: 10px;
+  border: 2px solid #2a2a2a;
+}
+
+#log {
+  background: #111;
+  margin-top: 2rem;
+  padding: 1rem;
+  height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+  border-radius: 10px;
+  border: 1px solid #2a2a2a;
+}
+
+.success { color: #6daa45; }
+.error { color: #dd6974; }
+.info { color: #4f98a3; }
+.warning { color: #e5b567; }
+</style>
 </head>
 
 <body>
@@ -41,36 +79,45 @@
 
 <div class="grid">
   <div class="card">
-    <h3>Create Ride (Passenger)</h3>
-    <input id="userId" placeholder="User UUID" value="550e8400-e29b-41d4-a716-446655440000"/>
-    
-    <label style="font-size: 0.8rem; color: #888; display: block; margin-top: 1rem;">Pickup Location (Hayathnagar)</label>
-    <div class="input-group">
-      <input id="pickupLat" value="17.3275" title="Pickup Lat"/>
-      <input id="pickupLng" value="78.6068" title="Pickup Lng"/>
+    <h3>Create Ride</h3>
+
+    <input id="userId" value="550e8400-e29b-41d4-a716-446655440000"/>
+
+    <div class="mode-buttons input-group">
+      <button onclick="setMode('pickup')">Select Pickup</button>
+      <button onclick="setMode('drop')">Select Drop</button>
     </div>
 
-    <label style="font-size: 0.8rem; color: #888; display: block; margin-top: 1rem;">Drop Location (Charminar)</label>
+    <label id="pickupLabel">Pickup Location</label>
     <div class="input-group">
-      <input id="dropLat" value="17.3616" title="Drop Lat"/>
-      <input id="dropLng" value="78.4747" title="Drop Lng"/>
+      <input id="pickupLat"/>
+      <input id="pickupLng"/>
+    </div>
+
+    <label id="dropLabel">Drop Location</label>
+    <div class="input-group">
+      <input id="dropLat"/>
+      <input id="dropLng"/>
     </div>
 
     <button onclick="createRide()">Create Ride</button>
   </div>
 
   <div class="card">
-    <h3>Live Tracking (Agent)</h3>
-    <input id="rideId" placeholder="Ride ID (Auto-fills on create)"/>
-    <button onclick="subscribe()">Subscribe to Ride</button>
+    <h3>Live Tracking</h3>
 
-    <input id="agentId" placeholder="Assigned Agent ID"/>
-    <label style="font-size: 0.8rem; color: #888; display: block; margin-top: 1rem;">Agent Current Location (Vanasthalipuram)</label>
+    <input id="rideId" placeholder="Ride ID"/>
+    <button onclick="subscribe()">Subscribe</button>
+
+    <input id="agentId" placeholder="Agent ID"/>
+
+    <label id="agentLabel">Agent Location</label>
     <div class="input-group">
-        <input id="agentLat" value="17.3361" title="Agent Lat"/>
-        <input id="agentLng" value="78.5741" title="Agent Lng"/>
+      <input id="agentLat" value="17.3361"/>
+      <input id="agentLng" value="78.5741"/>
     </div>
-    <button onclick="sendLocation()">Simulate Driving (Send Location)</button>
+
+    <button onclick="sendLocation()">Send Location</button>
   </div>
 </div>
 
@@ -79,124 +126,147 @@
 
 <script>
 const BASE = "http://localhost:8080";
+
 let stompClient = null;
-let map = L.map('map').setView([17.3616, 78.4747], 13); // Default to Hyderabad
+let map = L.map('map').setView([17.3616, 78.4747], 13);
 
-// Using CartoDB Voyager tiles
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19,
-    attribution: '© CARTO'
-}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
 
-let pickupMarker = null;
-let dropMarker = null;
-let agentMarker = null;
-let ridePathLine = null; // Store the Dijkstra line
+let pickupMarker, dropMarker, agentMarker, routeLine;
+let selectionMode = "pickup";
 
+// LOG FUNCTION
 function log(msg, type="info") {
   const el = document.createElement("div");
   el.className = type;
   el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  const logDiv = document.getElementById("log");
-  logDiv.appendChild(el);
-  logDiv.scrollTop = logDiv.scrollHeight;
+  document.getElementById("log").appendChild(el);
 }
 
-// WebSocket Connection
+// MODE SWITCH
+function setMode(mode) {
+  selectionMode = mode;
+  log("Mode: " + mode, "info");
+}
+
+// MAP CLICK
+map.on("click", async function(e) {
+  const lat = e.latlng.lat;
+  const lng = e.latlng.lng;
+
+  if (selectionMode === "pickup") {
+    document.getElementById("pickupLat").value = lat;
+    document.getElementById("pickupLng").value = lng;
+
+    if (pickupMarker) map.removeLayer(pickupMarker);
+    pickupMarker = L.marker([lat, lng]).addTo(map);
+
+    updateLocationName(lat, lng, "pickupLabel");
+  } else {
+    document.getElementById("dropLat").value = lat;
+    document.getElementById("dropLng").value = lng;
+
+    if (dropMarker) map.removeLayer(dropMarker);
+    dropMarker = L.marker([lat, lng]).addTo(map);
+
+    updateLocationName(lat, lng, "dropLabel");
+  }
+});
+
+// REVERSE GEOCODING
+async function updateLocationName(lat, lng, labelId) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+    const data = await res.json();
+    document.getElementById(labelId).textContent = data.display_name;
+  } catch {}
+}
+
+// CREATE RIDE
+async function createRide() {
+  const payload = {
+    userId: document.getElementById("userId").value,
+    pickupLat: parseFloat(pickupLat.value),
+    pickupLng: parseFloat(pickupLng.value),
+    dropLat: parseFloat(dropLat.value),
+    dropLng: parseFloat(dropLng.value)
+  };
+
+  const res = await fetch(BASE + "/api/rides", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+
+  document.getElementById("rideId").value = data.id;
+
+  log("Ride created", "success");
+
+  drawRoute(payload.pickupLat, payload.pickupLng, payload.dropLat, payload.dropLng);
+}
+
+// REAL ROUTE (OSRM)
+async function drawRoute(pLat, pLng, dLat, dLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+
+  if (routeLine) map.removeLayer(routeLine);
+
+  routeLine = L.polyline(coords, { color: '#4f98a3', weight: 5 }).addTo(map);
+
+  map.fitBounds(routeLine.getBounds());
+}
+
+// WEBSOCKET
 (function connect() {
   const socket = new SockJS(BASE + "/ws");
   stompClient = Stomp.over(socket);
-  stompClient.debug = null; 
 
   stompClient.connect({}, () => {
     document.getElementById("status").textContent = "✅";
-    log("WebSocket connected to Backend", "success");
-  }, () => {
-    log("WebSocket FAILED - Backend is down.", "error");
+    log("WebSocket connected", "success");
   });
 })();
 
-// CREATE RIDE & CALCULATE PATH
-async function createRide() {
-  try {
-    const payload = {
-      userId: document.getElementById("userId").value,
-      pickupLat: parseFloat(document.getElementById("pickupLat").value),
-      pickupLng: parseFloat(document.getElementById("pickupLng").value),
-      dropLat: parseFloat(document.getElementById("dropLat").value),
-      dropLng: parseFloat(document.getElementById("dropLng").value)
-    };
-
-    const res = await fetch(BASE + "/api/rides", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    document.getElementById("rideId").value = data.id;
-    if (data.agentId) document.getElementById("agentId").value = data.agentId;
-
-    log("Ride Created! Drawing Dijkstra Path...", "success");
-
-    // Clear old markers/lines
-    if (pickupMarker) map.removeLayer(pickupMarker);
-    if (dropMarker) map.removeLayer(dropMarker);
-    if (ridePathLine) map.removeLayer(ridePathLine);
-
-    pickupMarker = L.marker([payload.pickupLat, payload.pickupLng]).addTo(map).bindPopup("Pickup");
-    dropMarker = L.marker([payload.dropLat, payload.dropLng]).addTo(map).bindPopup("Dropoff");
-
-    // DRAW THE PATH (If sent by backend)
-    if (data.path && data.path.length > 0) {
-        ridePathLine = L.polyline(data.path, {
-            color: '#4f98a3', 
-            weight: 5, 
-            opacity: 0.8,
-            dashArray: '5, 10'
-        }).addTo(map);
-        map.fitBounds(ridePathLine.getBounds(), { padding: [50, 50] });
-    } else {
-        const group = new L.featureGroup([pickupMarker, dropMarker]);
-        map.fitBounds(group.getBounds(), { padding: [50, 50] });
-    }
-
-  } catch (e) {
-    log("Error: " + e.message, "error");
-  }
-}
-
-// SUBSCRIBE TO LIVE UPDATES
+// SUBSCRIBE
 function subscribe() {
   const rideId = document.getElementById("rideId").value;
-  if (!rideId) return log("No Ride ID found", "error");
 
   stompClient.subscribe("/topic/rides/" + rideId, (msg) => {
     const data = JSON.parse(msg.body);
-    const newLat = parseFloat(data.latitude || data.currentLat || data.lat);
-    const newLng = parseFloat(data.longitude || data.currentLng || data.lng);
+    const lat = data.latitude;
+    const lng = data.longitude;
 
     if (agentMarker) {
-      agentMarker.setLatLng([newLat, newLng]);
+      agentMarker.setLatLng([lat, lng]);
     } else {
-      agentMarker = L.marker([newLat, newLng]).addTo(map).bindPopup("Driver");
+      agentMarker = L.marker([lat, lng]).addTo(map);
     }
-    log(`Driver moved to: ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`, "info");
-    map.panTo([newLat, newLng]);
+
+    map.panTo([lat, lng]);
   });
-  log("Subscribed to live updates!", "success");
+
+  log("Subscribed to ride", "success");
 }
 
-// SEND AGENT LOCATION
+// SEND LOCATION
 function sendLocation() {
   const payload = {
-    agentId: document.getElementById("agentId").value,
-    latitude: parseFloat(document.getElementById("agentLat").value),
-    longitude: parseFloat(document.getElementById("agentLng").value)
+    agentId: agentId.value,
+    latitude: parseFloat(agentLat.value),
+    longitude: parseFloat(agentLng.value)
   };
+
   stompClient.send("/app/agent/location", {}, JSON.stringify(payload));
-  log("Sent location update to Backend", "info");
+  log("Location sent", "info");
 }
 </script>
+
 </body>
 </html>
